@@ -4,14 +4,16 @@ import './App.css'
 
 type PublishStatus = '候補' | '執筆中' | '予約投稿' | '投稿完了'
 type ContentKind = 'note' | 'x' | 'threads'
-type ViewKey = 'home' | ContentKind | 'memo'
+type ViewKey = 'home' | ContentKind | 'memo' | 'logs'
 
 type PublishItem = {
   id: string
-  title: string
   status: PublishStatus
   publishDate: string
   publicUrl: string
+  title?: string
+  body?: string
+  memo?: string
 }
 
 type MemoItem = {
@@ -27,7 +29,8 @@ type AppData = {
   memo: MemoItem[]
 }
 
-const storageKey = 'ai-labo-content-v1'
+const storageKey = 'ai-labo-content-v2'
+const legacyStorageKey = 'ai-labo-content-v1'
 const statuses: PublishStatus[] = ['候補', '執筆中', '予約投稿', '投稿完了']
 
 const pageInfo: Record<ContentKind, { label: string; short: string; empty: string }> = {
@@ -39,12 +42,12 @@ const pageInfo: Record<ContentKind, { label: string; short: string; empty: strin
   x: {
     label: 'X投稿ページ',
     short: 'X',
-    empty: '短く届けたい投稿案を追加できます。',
+    empty: 'X向けの本文とメモを追加できます。',
   },
   threads: {
     label: 'Threads投稿ページ',
     short: 'Threads',
-    empty: 'Threads向けの投稿案を追加できます。',
+    empty: 'Threads向けの本文とメモを追加できます。',
   },
 }
 
@@ -61,7 +64,8 @@ const initialData: AppData = {
   x: [
     {
       id: 'x-small-ai-habit',
-      title: 'AI活用は「大きく変える」より、毎日の小さな記録から始める',
+      body: 'AI活用は「大きく変える」より、毎日の小さな記録から始める。',
+      memo: '短く、続けやすさが伝わる投稿にする。',
       status: '候補',
       publishDate: '',
       publicUrl: '',
@@ -70,7 +74,8 @@ const initialData: AppData = {
   threads: [
     {
       id: 'threads-wall-chat',
-      title: '記事構成をAIと壁打ちするときの気づき',
+      body: '記事構成をAIと壁打ちすると、読者像ごとの差分が見えやすくなる。',
+      memo: 'note本文へつなげる前の気づきとして使う。',
       status: '候補',
       publishDate: '',
       publicUrl: '',
@@ -100,11 +105,36 @@ const createId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`
 
+const getItemText = (kind: ContentKind, item: PublishItem) =>
+  kind === 'note' ? item.title || '無題のnote' : item.body || '本文未入力'
+
+function normalizeData(savedData: Partial<AppData>): AppData {
+  return {
+    note: (savedData.note || initialData.note).map((item) => ({
+      ...item,
+      title: item.title || item.body || '',
+    })),
+    x: (savedData.x || initialData.x).map((item) => ({
+      ...item,
+      body: item.body || item.title || '',
+      title: undefined,
+      memo: item.memo || '',
+    })),
+    threads: (savedData.threads || initialData.threads).map((item) => ({
+      ...item,
+      body: item.body || item.title || '',
+      title: undefined,
+      memo: item.memo || '',
+    })),
+    memo: savedData.memo || initialData.memo,
+  }
+}
+
 function loadData(): AppData {
   try {
-    const saved = localStorage.getItem(storageKey)
+    const saved = localStorage.getItem(storageKey) || localStorage.getItem(legacyStorageKey)
     if (!saved) return initialData
-    return { ...initialData, ...JSON.parse(saved) }
+    return normalizeData(JSON.parse(saved))
   } catch {
     return initialData
   }
@@ -115,10 +145,18 @@ function App() {
   const [data, setData] = useState<AppData>(loadData)
   const [drafts, setDrafts] = useState<Record<ContentKind, Omit<PublishItem, 'id'>>>({
     note: { title: '', status: '候補', publishDate: '', publicUrl: '' },
-    x: { title: '', status: '候補', publishDate: '', publicUrl: '' },
-    threads: { title: '', status: '候補', publishDate: '', publicUrl: '' },
+    x: { body: '', memo: '', status: '候補', publishDate: '', publicUrl: '' },
+    threads: { body: '', memo: '', status: '候補', publishDate: '', publicUrl: '' },
   })
   const [memoDraft, setMemoDraft] = useState({ memo: '', note: '' })
+
+  const logItems = useMemo(
+    () =>
+      (['note', 'x', 'threads'] as ContentKind[]).flatMap((kind) =>
+        data[kind].map((item) => ({ ...item, kind })),
+      ),
+    [data],
+  )
 
   const totals = useMemo(() => {
     const content = [...data.note, ...data.x, ...data.threads]
@@ -145,14 +183,22 @@ function App() {
   const addPublishItem = (event: FormEvent, kind: ContentKind) => {
     event.preventDefault()
     const draft = drafts[kind]
-    if (!draft.title.trim()) return
-    saveData({
-      ...data,
-      [kind]: [{ ...draft, id: createId(), title: draft.title.trim() }, ...data[kind]],
-    })
+    const mainText = kind === 'note' ? draft.title : draft.body
+    if (!mainText?.trim()) return
+    const item = {
+      ...draft,
+      id: createId(),
+      title: draft.title?.trim(),
+      body: draft.body?.trim(),
+      memo: draft.memo?.trim(),
+    }
+    saveData({ ...data, [kind]: [item, ...data[kind]] })
     setDrafts({
       ...drafts,
-      [kind]: { title: '', status: '候補', publishDate: '', publicUrl: '' },
+      [kind]:
+        kind === 'note'
+          ? { title: '', status: '候補', publishDate: '', publicUrl: '' }
+          : { body: '', memo: '', status: '候補', publishDate: '', publicUrl: '' },
     })
   }
 
@@ -201,6 +247,7 @@ function App() {
         <nav className="nav-list">
           {[
             ['home', 'トップページ'],
+            ['logs', 'ログ一覧ページ'],
             ['note', 'noteページ'],
             ['x', 'X投稿ページ'],
             ['threads', 'Threads投稿ページ'],
@@ -222,14 +269,22 @@ function App() {
         <header className="topbar">
           <div>
             <p className="eyebrow">AI publishing workspace</p>
-            <h1>{view === 'home' ? 'トップページ' : view === 'memo' ? '仮メモページ' : pageInfo[view].label}</h1>
+            <h1>
+              {view === 'home'
+                ? 'トップページ'
+                : view === 'memo'
+                  ? '仮メモページ'
+                  : view === 'logs'
+                    ? 'ログ一覧ページ'
+                    : pageInfo[view].label}
+            </h1>
           </div>
           <div className="save-pill">localStorage保存</div>
         </header>
 
-        {view === 'home' && (
-          <HomePanel data={data} totals={totals} setView={setView} />
-        )}
+        {view === 'home' && <HomePanel data={data} totals={totals} setView={setView} />}
+
+        {view === 'logs' && <LogsPanel items={logItems} />}
 
         {(view === 'note' || view === 'x' || view === 'threads') && (
           <PublishPanel
@@ -302,6 +357,11 @@ function HomePanel({
         <p>クリックすると各ページを開きます</p>
       </section>
       <div className="page-jump-grid">
+        <button className="page-card" type="button" onClick={() => setView('logs')}>
+          <span>ログ一覧ページ</span>
+          <strong>{totals.content}</strong>
+          <small>note / X / Threads</small>
+        </button>
         {(['note', 'x', 'threads'] as ContentKind[]).map((kind) => (
           <button className="page-card" type="button" onClick={() => setView(kind)} key={kind}>
             <span>{pageInfo[kind].label}</span>
@@ -326,7 +386,7 @@ function HomePanel({
             {totals.nextItems.map((item) => (
               <article key={item.id} className="mini-item">
                 <time>{item.publishDate}</time>
-                <p>{item.title}</p>
+                <p>{item.title || item.body}</p>
                 <span>{item.status}</span>
               </article>
             ))}
@@ -349,6 +409,42 @@ function SummaryCard({ label, value, detail }: { label: string; value: number; d
   )
 }
 
+function LogsPanel({ items }: { items: Array<PublishItem & { kind: ContentKind }> }) {
+  const sortedItems = [...items].sort((a, b) => (b.publishDate || '').localeCompare(a.publishDate || ''))
+
+  return (
+    <section className="table-panel">
+      <div className="section-heading">
+        <h2>note、X投稿、Threads投稿</h2>
+        <p>{items.length}件をまとめて表示</p>
+      </div>
+      <div className="log-list">
+        {sortedItems.map((item) => (
+          <article className="log-card" key={`${item.kind}-${item.id}`}>
+            <div>
+              <span className="kind-pill">{pageInfo[item.kind].short}</span>
+              <h3>{getItemText(item.kind, item)}</h3>
+              {item.kind !== 'note' && item.memo && <p>{item.memo}</p>}
+            </div>
+            <div className="log-meta">
+              <span>{item.status}</span>
+              <time>{item.publishDate || '公開日未定'}</time>
+              {item.publicUrl ? (
+                <a href={item.publicUrl} target="_blank" rel="noreferrer">
+                  開く
+                </a>
+              ) : (
+                <span>URL未設定</span>
+              )}
+            </div>
+          </article>
+        ))}
+        {items.length === 0 && <p className="empty-copy">ログに表示できる投稿はまだありません。</p>}
+      </div>
+    </section>
+  )
+}
+
 function PublishPanel({
   kind,
   items,
@@ -366,21 +462,45 @@ function PublishPanel({
   onUpdate: (id: string, patch: Partial<PublishItem>) => void
   onDelete: (id: string) => void
 }) {
+  const isNote = kind === 'note'
+
   return (
-    <div className="content-layout">
+    <div className={isNote ? 'content-layout' : 'post-layout'}>
       <form className="editor-panel" onSubmit={onSubmit}>
         <div className="section-heading">
           <h2>{pageInfo[kind].short}を追加</h2>
           <p>{pageInfo[kind].empty}</p>
         </div>
-        <label>
-          タイトル
-          <input
-            value={draft.title}
-            onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-            placeholder="タイトルを入力"
-          />
-        </label>
+        {isNote ? (
+          <label>
+            タイトル
+            <input
+              value={draft.title || ''}
+              onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+              placeholder="タイトルを入力"
+            />
+          </label>
+        ) : (
+          <>
+            <label>
+              本文
+              <textarea
+                className="post-textarea"
+                value={draft.body || ''}
+                onChange={(event) => setDraft({ ...draft, body: event.target.value })}
+                placeholder="投稿本文を書く"
+              />
+            </label>
+            <label>
+              メモ
+              <textarea
+                value={draft.memo || ''}
+                onChange={(event) => setDraft({ ...draft, memo: event.target.value })}
+                placeholder="狙い、補足、次に直すこと"
+              />
+            </label>
+          </>
+        )}
         <div className="field-row">
           <label>
             ステータス
@@ -424,12 +544,32 @@ function PublishPanel({
         <div className="item-list">
           {items.map((item) => (
             <article className="publish-card" key={item.id}>
-              <input
-                className="title-input"
-                value={item.title}
-                onChange={(event) => onUpdate(item.id, { title: event.target.value })}
-                aria-label="タイトル"
-              />
+              {isNote ? (
+                <input
+                  className="title-input"
+                  value={item.title || ''}
+                  onChange={(event) => onUpdate(item.id, { title: event.target.value })}
+                  aria-label="タイトル"
+                />
+              ) : (
+                <div className="post-edit-grid">
+                  <label>
+                    本文
+                    <textarea
+                      className="post-textarea"
+                      value={item.body || ''}
+                      onChange={(event) => onUpdate(item.id, { body: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    メモ
+                    <textarea
+                      value={item.memo || ''}
+                      onChange={(event) => onUpdate(item.id, { memo: event.target.value })}
+                    />
+                  </label>
+                </div>
+              )}
               <div className="field-row">
                 <label>
                   ステータス
