@@ -56,6 +56,7 @@ const initialData: AppData = {
     {
       id: 'note-ai-thinking',
       title: 'AIで日常の思考整理をラクにするnote',
+      memo: '読者がすぐ試せるプロンプト例と、使う前後の変化をセットで書く。',
       status: '候補',
       publishDate: '',
       publicUrl: '',
@@ -113,6 +114,7 @@ function normalizeData(savedData: Partial<AppData>): AppData {
     note: (savedData.note || initialData.note).map((item) => ({
       ...item,
       title: item.title || item.body || '',
+      memo: item.memo || '',
     })),
     x: (savedData.x || initialData.x).map((item) => ({
       ...item,
@@ -144,7 +146,7 @@ function App() {
   const [view, setView] = useState<ViewKey>('home')
   const [data, setData] = useState<AppData>(loadData)
   const [drafts, setDrafts] = useState<Record<ContentKind, Omit<PublishItem, 'id'>>>({
-    note: { title: '', status: '候補', publishDate: '', publicUrl: '' },
+    note: { title: '', memo: '', status: '候補', publishDate: '', publicUrl: '' },
     x: { body: '', memo: '', status: '候補', publishDate: '', publicUrl: '' },
     threads: { body: '', memo: '', status: '候補', publishDate: '', publicUrl: '' },
   })
@@ -197,7 +199,7 @@ function App() {
       ...drafts,
       [kind]:
         kind === 'note'
-          ? { title: '', status: '候補', publishDate: '', publicUrl: '' }
+          ? { title: '', memo: '', status: '候補', publishDate: '', publicUrl: '' }
           : { body: '', memo: '', status: '候補', publishDate: '', publicUrl: '' },
     })
   }
@@ -424,7 +426,7 @@ function LogsPanel({ items }: { items: Array<PublishItem & { kind: ContentKind }
             <div>
               <span className="kind-pill">{pageInfo[item.kind].short}</span>
               <h3>{getItemText(item.kind, item)}</h3>
-              {item.kind !== 'note' && item.memo && <p>{item.memo}</p>}
+              {item.memo && <p>{item.memo}</p>}
             </div>
             <div className="log-meta">
               <span>{item.status}</span>
@@ -472,14 +474,24 @@ function PublishPanel({
           <p>{pageInfo[kind].empty}</p>
         </div>
         {isNote ? (
-          <label>
-            タイトル
-            <input
-              value={draft.title || ''}
-              onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-              placeholder="タイトルを入力"
-            />
-          </label>
+          <>
+            <label>
+              タイトル
+              <input
+                value={draft.title || ''}
+                onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+                placeholder="タイトルを入力"
+              />
+            </label>
+            <label>
+              メモ
+              <textarea
+                value={draft.memo || ''}
+                onChange={(event) => setDraft({ ...draft, memo: event.target.value })}
+                placeholder="切り口、見出し案、補足など"
+              />
+            </label>
+          </>
         ) : (
           <>
             <label>
@@ -545,12 +557,22 @@ function PublishPanel({
           {items.map((item) => (
             <article className="publish-card" key={item.id}>
               {isNote ? (
-                <input
-                  className="title-input"
-                  value={item.title || ''}
-                  onChange={(event) => onUpdate(item.id, { title: event.target.value })}
-                  aria-label="タイトル"
-                />
+                <>
+                  <input
+                    className="title-input"
+                    value={item.title || ''}
+                    onChange={(event) => onUpdate(item.id, { title: event.target.value })}
+                    aria-label="タイトル"
+                  />
+                  <label>
+                    メモ
+                    <textarea
+                      value={item.memo || ''}
+                      onChange={(event) => onUpdate(item.id, { memo: event.target.value })}
+                      placeholder="切り口、見出し案、補足など"
+                    />
+                  </label>
+                </>
               ) : (
                 <div className="post-edit-grid">
                   <label>
