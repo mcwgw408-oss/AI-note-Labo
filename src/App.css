@@ -359,6 +359,7 @@ a:focus-visible {
 }
 
 .primary-button,
+.secondary-button,
 .delete-button {
   border: 0;
   border-radius: 7px;
@@ -377,6 +378,16 @@ a:focus-visible {
   background: #155539;
 }
 
+.secondary-button {
+  background: #eaf0e2;
+  color: #25563d;
+  padding: 8px 11px;
+}
+
+.secondary-button:hover {
+  background: #dfe8d5;
+}
+
 .publish-card,
 .memo-card,
 .log-card {
@@ -388,6 +399,32 @@ a:focus-visible {
 
 .title-input {
   font-size: 17px;
+  font-weight: 800;
+}
+
+.publish-card h3 {
+  margin: 0 0 6px;
+  color: #17211c;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.publish-card p {
+  margin-bottom: 0;
+  color: #637068;
+  overflow-wrap: anywhere;
+}
+
+.publish-meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #52635a;
+  font-size: 14px;
+}
+
+.publish-meta a {
+  color: #1e6d4a;
   font-weight: 800;
 }
 
@@ -420,6 +457,15 @@ a:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 16px;
+}
+
+.log-card-editing {
+  grid-template-columns: 1fr;
+}
+
+.log-edit-form {
+  display: grid;
+  gap: 14px;
 }
 
 .log-card h3 {
@@ -457,6 +503,13 @@ a:focus-visible {
 .log-meta a {
   color: #1e6d4a;
   font-weight: 800;
+}
+
+.meta-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
 }
 
 .empty-copy {

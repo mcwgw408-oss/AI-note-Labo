@@ -286,7 +286,9 @@ function App() {
 
         {view === 'home' && <HomePanel data={data} totals={totals} setView={setView} />}
 
-        {view === 'logs' && <LogsPanel items={logItems} />}
+        {view === 'logs' && (
+          <LogsPanel items={logItems} onUpdate={updatePublishItem} onDelete={deletePublishItem} />
+        )}
 
         {(view === 'note' || view === 'x' || view === 'threads') && (
           <PublishPanel
@@ -411,7 +413,16 @@ function SummaryCard({ label, value, detail }: { label: string; value: number; d
   )
 }
 
-function LogsPanel({ items }: { items: Array<PublishItem & { kind: ContentKind }> }) {
+function LogsPanel({
+  items,
+  onUpdate,
+  onDelete,
+}: {
+  items: Array<PublishItem & { kind: ContentKind }>
+  onUpdate: (kind: ContentKind, id: string, patch: Partial<PublishItem>) => void
+  onDelete: (kind: ContentKind, id: string) => void
+}) {
+  const [editingKey, setEditingKey] = useState<string | null>(null)
   const sortedItems = [...items].sort((a, b) => (b.publishDate || '').localeCompare(a.publishDate || ''))
 
   return (
@@ -421,26 +432,122 @@ function LogsPanel({ items }: { items: Array<PublishItem & { kind: ContentKind }
         <p>{items.length}件をまとめて表示</p>
       </div>
       <div className="log-list">
-        {sortedItems.map((item) => (
-          <article className="log-card" key={`${item.kind}-${item.id}`}>
-            <div>
-              <span className="kind-pill">{pageInfo[item.kind].short}</span>
-              <h3>{getItemText(item.kind, item)}</h3>
-              {item.memo && <p>{item.memo}</p>}
-            </div>
-            <div className="log-meta">
-              <span>{item.status}</span>
-              <time>{item.publishDate || '公開日未定'}</time>
-              {item.publicUrl ? (
-                <a href={item.publicUrl} target="_blank" rel="noreferrer">
-                  開く
-                </a>
+        {sortedItems.map((item) => {
+          const itemKey = `${item.kind}-${item.id}`
+          const isEditing = editingKey === itemKey
+          const isNote = item.kind === 'note'
+
+          return (
+            <article className={isEditing ? 'log-card log-card-editing' : 'log-card'} key={itemKey}>
+              {isEditing ? (
+                <div className="log-edit-form">
+                  <span className="kind-pill">{pageInfo[item.kind].short}</span>
+                  {isNote ? (
+                    <label>
+                      タイトル
+                      <input
+                        className="title-input"
+                        value={item.title || ''}
+                        onChange={(event) => onUpdate(item.kind, item.id, { title: event.target.value })}
+                        aria-label="タイトル"
+                      />
+                    </label>
+                  ) : (
+                    <label>
+                      本文
+                      <textarea
+                        className="post-textarea"
+                        value={item.body || ''}
+                        onChange={(event) => onUpdate(item.kind, item.id, { body: event.target.value })}
+                      />
+                    </label>
+                  )}
+                  <label>
+                    メモ
+                    <textarea
+                      value={item.memo || ''}
+                      onChange={(event) => onUpdate(item.kind, item.id, { memo: event.target.value })}
+                    />
+                  </label>
+                  <div className="field-row">
+                    <label>
+                      ステータス
+                      <select
+                        value={item.status}
+                        onChange={(event) =>
+                          onUpdate(item.kind, item.id, { status: event.target.value as PublishStatus })
+                        }
+                      >
+                        {statuses.map((status) => (
+                          <option key={status}>{status}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      公開日
+                      <input
+                        type="date"
+                        value={item.publishDate}
+                        onChange={(event) => onUpdate(item.kind, item.id, { publishDate: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    公開URL
+                    <input
+                      value={item.publicUrl}
+                      onChange={(event) => onUpdate(item.kind, item.id, { publicUrl: event.target.value })}
+                      placeholder="https://"
+                      inputMode="url"
+                    />
+                  </label>
+                  <div className="card-actions">
+                    <button type="button" className="secondary-button" onClick={() => setEditingKey(null)}>
+                      完了
+                    </button>
+                    <button
+                      type="button"
+                      className="delete-button"
+                      onClick={() => {
+                        onDelete(item.kind, item.id)
+                        setEditingKey(null)
+                      }}
+                    >
+                      削除
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <span>URL未設定</span>
+                <>
+                  <div>
+                    <span className="kind-pill">{pageInfo[item.kind].short}</span>
+                    <h3>{getItemText(item.kind, item)}</h3>
+                    {item.memo && <p>{item.memo}</p>}
+                  </div>
+                  <div className="log-meta">
+                    <span>{item.status}</span>
+                    <time>{item.publishDate || '公開日未定'}</time>
+                    {item.publicUrl ? (
+                      <a href={item.publicUrl} target="_blank" rel="noreferrer">
+                        開く
+                      </a>
+                    ) : (
+                      <span>URL未設定</span>
+                    )}
+                    <div className="meta-actions">
+                      <button type="button" className="secondary-button" onClick={() => setEditingKey(itemKey)}>
+                        編集
+                      </button>
+                      <button type="button" className="delete-button" onClick={() => onDelete(item.kind, item.id)}>
+                        削除
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
-            </div>
-          </article>
-        ))}
+            </article>
+          )
+        })}
         {items.length === 0 && <p className="empty-copy">ログに表示できる投稿はまだありません。</p>}
       </div>
     </section>
@@ -465,6 +572,7 @@ function PublishPanel({
   onDelete: (id: string) => void
 }) {
   const isNote = kind === 'note'
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   return (
     <div className={isNote ? 'content-layout' : 'post-layout'}>
@@ -554,88 +662,125 @@ function PublishPanel({
           <p>{items.length}件</p>
         </div>
         <div className="item-list">
-          {items.map((item) => (
-            <article className="publish-card" key={item.id}>
-              {isNote ? (
-                <>
-                  <input
-                    className="title-input"
-                    value={item.title || ''}
-                    onChange={(event) => onUpdate(item.id, { title: event.target.value })}
-                    aria-label="タイトル"
-                  />
-                  <label>
-                    メモ
-                    <textarea
-                      value={item.memo || ''}
-                      onChange={(event) => onUpdate(item.id, { memo: event.target.value })}
-                      placeholder="切り口、見出し案、補足など"
-                    />
-                  </label>
-                </>
-              ) : (
-                <div className="post-edit-grid">
-                  <label>
-                    本文
-                    <textarea
-                      className="post-textarea"
-                      value={item.body || ''}
-                      onChange={(event) => onUpdate(item.id, { body: event.target.value })}
-                    />
-                  </label>
-                  <label>
-                    メモ
-                    <textarea
-                      value={item.memo || ''}
-                      onChange={(event) => onUpdate(item.id, { memo: event.target.value })}
-                    />
-                  </label>
-                </div>
-              )}
-              <div className="field-row">
-                <label>
-                  ステータス
-                  <select
-                    value={item.status}
-                    onChange={(event) => onUpdate(item.id, { status: event.target.value as PublishStatus })}
-                  >
-                    {statuses.map((status) => (
-                      <option key={status}>{status}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  公開日
-                  <input
-                    type="date"
-                    value={item.publishDate}
-                    onChange={(event) => onUpdate(item.id, { publishDate: event.target.value })}
-                  />
-                </label>
-              </div>
-              <label>
-                公開URL
-                <input
-                  value={item.publicUrl}
-                  onChange={(event) => onUpdate(item.id, { publicUrl: event.target.value })}
-                  placeholder="https://"
-                  inputMode="url"
-                />
-              </label>
-              <div className="card-actions">
-                {item.publicUrl ? (
-                  <a href={item.publicUrl} target="_blank" rel="noreferrer">
-                    開く
-                  </a>
+          {items.map((item) => {
+            const isEditing = editingId === item.id
+
+            return (
+              <article className="publish-card" key={item.id}>
+                {isEditing ? (
+                  <>
+                    {isNote ? (
+                      <>
+                        <input
+                          className="title-input"
+                          value={item.title || ''}
+                          onChange={(event) => onUpdate(item.id, { title: event.target.value })}
+                          aria-label="タイトル"
+                        />
+                        <label>
+                          メモ
+                          <textarea
+                            value={item.memo || ''}
+                            onChange={(event) => onUpdate(item.id, { memo: event.target.value })}
+                            placeholder="切り口、見出し案、補足など"
+                          />
+                        </label>
+                      </>
+                    ) : (
+                      <div className="post-edit-grid">
+                        <label>
+                          本文
+                          <textarea
+                            className="post-textarea"
+                            value={item.body || ''}
+                            onChange={(event) => onUpdate(item.id, { body: event.target.value })}
+                          />
+                        </label>
+                        <label>
+                          メモ
+                          <textarea
+                            value={item.memo || ''}
+                            onChange={(event) => onUpdate(item.id, { memo: event.target.value })}
+                          />
+                        </label>
+                      </div>
+                    )}
+                    <div className="field-row">
+                      <label>
+                        ステータス
+                        <select
+                          value={item.status}
+                          onChange={(event) => onUpdate(item.id, { status: event.target.value as PublishStatus })}
+                        >
+                          {statuses.map((status) => (
+                            <option key={status}>{status}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        公開日
+                        <input
+                          type="date"
+                          value={item.publishDate}
+                          onChange={(event) => onUpdate(item.id, { publishDate: event.target.value })}
+                        />
+                      </label>
+                    </div>
+                    <label>
+                      公開URL
+                      <input
+                        value={item.publicUrl}
+                        onChange={(event) => onUpdate(item.id, { publicUrl: event.target.value })}
+                        placeholder="https://"
+                        inputMode="url"
+                      />
+                    </label>
+                    <div className="card-actions">
+                      <button type="button" className="secondary-button" onClick={() => setEditingId(null)}>
+                        完了
+                      </button>
+                      <button
+                        type="button"
+                        className="delete-button"
+                        onClick={() => {
+                          onDelete(item.id)
+                          setEditingId(null)
+                        }}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </>
                 ) : (
-                  <span>URL未設定</span>
+                  <>
+                    <div>
+                      <h3>{getItemText(kind, item)}</h3>
+                      {item.memo && <p>{item.memo}</p>}
+                    </div>
+                    <div className="publish-meta">
+                      <span>{item.status}</span>
+                      <time>{item.publishDate || '公開日未定'}</time>
+                      {item.publicUrl ? (
+                        <a href={item.publicUrl} target="_blank" rel="noreferrer">
+                          開く
+                        </a>
+                      ) : (
+                        <span>URL未設定</span>
+                      )}
+                    </div>
+                    <div className="card-actions">
+                      <button type="button" className="secondary-button" onClick={() => setEditingId(item.id)}>
+                        編集
+                      </button>
+                      <button type="button" className="delete-button" onClick={() => onDelete(item.id)}>
+                        削除
+                      </button>
+                    </div>
+                  </>
                 )}
-                <button type="button" className="delete-button" onClick={() => onDelete(item.id)}>
-                  削除
-                </button>
-              </div>
-            </article>
-          ))}
+              </article>
+            )
+          })}
           {items.length === 0 && <p className="empty-copy">{pageInfo[kind].empty}</p>}
         </div>
       </section>
