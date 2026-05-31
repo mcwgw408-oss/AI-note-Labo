@@ -181,6 +181,26 @@ h2 {
   background: #fbfbf8;
 }
 
+.status-count.is-candidate {
+  border-color: #e7c46a;
+  background: #fff8e4;
+}
+
+.status-count.is-writing {
+  border-color: #9ec4e5;
+  background: #edf6ff;
+}
+
+.status-count.is-scheduled {
+  border-color: #cab4e5;
+  background: #f5effc;
+}
+
+.status-count.is-done {
+  border-color: #9ed6b9;
+  background: #eaf8f1;
+}
+
 .status-count p {
   margin: 8px 0;
   color: #2d3c32;
@@ -198,20 +218,58 @@ h2 {
   border-radius: 999px;
 }
 
-.dot-候補 {
+.dot.is-candidate {
   background: #e0a72e;
 }
 
-.dot-執筆中 {
+.dot.is-writing {
   background: #3076b9;
 }
 
-.dot-予約投稿 {
+.dot.is-scheduled {
   background: #8d61c1;
 }
 
-.dot-投稿完了 {
+.dot.is-done {
   background: #2c9b62;
+}
+
+.status-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.status-badge.is-candidate {
+  border-color: #e7c46a;
+  background: #fff5d7;
+  color: #7b5410;
+}
+
+.status-badge.is-writing {
+  border-color: #9ec4e5;
+  background: #e7f2fc;
+  color: #245c8f;
+}
+
+.status-badge.is-scheduled {
+  border-color: #cab4e5;
+  background: #f0e9fa;
+  color: #664293;
+}
+
+.status-badge.is-done {
+  border-color: #9ed6b9;
+  background: #e5f6ee;
+  color: #216b47;
 }
 
 .page-jump-heading {
@@ -273,8 +331,7 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-.mini-item time,
-.mini-item span {
+.mini-item time {
   color: #64736a;
   font-size: 13px;
 }
@@ -319,6 +376,34 @@ textarea {
   font: inherit;
   font-size: 15px;
   padding: 10px 11px;
+}
+
+.status-select {
+  font-weight: 800;
+}
+
+.status-select.is-candidate {
+  border-color: #e7c46a;
+  background: #fff5d7;
+  color: #7b5410;
+}
+
+.status-select.is-writing {
+  border-color: #9ec4e5;
+  background: #e7f2fc;
+  color: #245c8f;
+}
+
+.status-select.is-scheduled {
+  border-color: #cab4e5;
+  background: #f0e9fa;
+  color: #664293;
+}
+
+.status-select.is-done {
+  border-color: #9ed6b9;
+  background: #e5f6ee;
+  color: #216b47;
 }
 
 textarea {

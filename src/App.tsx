@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import './App.css'
 
 type PublishStatus = '候補' | '執筆中' | '予約投稿' | '投稿完了'
+type StatusTone = 'candidate' | 'writing' | 'scheduled' | 'done'
 type ContentKind = 'note' | 'x' | 'threads'
 type ViewKey = 'home' | ContentKind | 'memo' | 'logs'
 
@@ -32,6 +33,23 @@ type AppData = {
 const storageKey = 'ai-labo-content-v2'
 const legacyStorageKey = 'ai-labo-content-v1'
 const statuses: PublishStatus[] = ['候補', '執筆中', '予約投稿', '投稿完了']
+
+const statusTones: Record<PublishStatus, StatusTone> = {
+  候補: 'candidate',
+  執筆中: 'writing',
+  予約投稿: 'scheduled',
+  投稿完了: 'done',
+}
+
+const getStatusTone = (status: string): StatusTone => {
+  if (status.includes('完了')) return 'done'
+  if (status.includes('予約')) return 'scheduled'
+  if (status.includes('執筆')) return 'writing'
+  return statusTones[status as PublishStatus] || 'candidate'
+}
+
+const statusToneClassName = (status: string) => `is-${getStatusTone(status)}`
+const statusClassName = (status: PublishStatus) => `status-badge ${statusToneClassName(status)}`
 
 const pageInfo: Record<ContentKind, { label: string; short: string; empty: string }> = {
   note: {
@@ -347,8 +365,8 @@ function HomePanel({
         </div>
         <div className="status-grid">
           {totals.byStatus.map((item) => (
-            <div className="status-count" key={item.status}>
-              <span className={`dot dot-${item.status}`} />
+            <div className={`status-count ${statusToneClassName(item.status)}`} key={item.status}>
+              <span className={`dot ${statusToneClassName(item.status)}`} />
               <p>{item.status}</p>
               <strong>{item.count}</strong>
             </div>
@@ -391,7 +409,7 @@ function HomePanel({
               <article key={item.id} className="mini-item">
                 <time>{item.publishDate}</time>
                 <p>{item.title || item.body}</p>
-                <span>{item.status}</span>
+                <StatusBadge status={item.status} />
               </article>
             ))}
           </div>
@@ -411,6 +429,10 @@ function SummaryCard({ label, value, detail }: { label: string; value: number; d
       <span>{detail}</span>
     </article>
   )
+}
+
+function StatusBadge({ status }: { status: PublishStatus }) {
+  return <span className={statusClassName(status)}>{status}</span>
 }
 
 function LogsPanel({
@@ -473,6 +495,7 @@ function LogsPanel({
                     <label>
                       ステータス
                       <select
+                        className={`status-select ${statusToneClassName(item.status)}`}
                         value={item.status}
                         onChange={(event) =>
                           onUpdate(item.kind, item.id, { status: event.target.value as PublishStatus })
@@ -525,7 +548,7 @@ function LogsPanel({
                     {item.memo && <p>{item.memo}</p>}
                   </div>
                   <div className="log-meta">
-                    <span>{item.status}</span>
+                    <StatusBadge status={item.status} />
                     <time>{item.publishDate || '公開日未定'}</time>
                     {item.publicUrl ? (
                       <a href={item.publicUrl} target="_blank" rel="noreferrer">
@@ -625,6 +648,7 @@ function PublishPanel({
           <label>
             ステータス
             <select
+              className={`status-select ${statusToneClassName(draft.status)}`}
               value={draft.status}
               onChange={(event) => setDraft({ ...draft, status: event.target.value as PublishStatus })}
             >
@@ -709,6 +733,7 @@ function PublishPanel({
                       <label>
                         ステータス
                         <select
+                          className={`status-select ${statusToneClassName(item.status)}`}
                           value={item.status}
                           onChange={(event) => onUpdate(item.id, { status: event.target.value as PublishStatus })}
                         >
@@ -758,7 +783,7 @@ function PublishPanel({
                       {item.memo && <p>{item.memo}</p>}
                     </div>
                     <div className="publish-meta">
-                      <span>{item.status}</span>
+                      <StatusBadge status={item.status} />
                       <time>{item.publishDate || '公開日未定'}</time>
                       {item.publicUrl ? (
                         <a href={item.publicUrl} target="_blank" rel="noreferrer">
