@@ -127,6 +127,13 @@ const createId = () =>
 const getItemText = (kind: ContentKind, item: PublishItem) =>
   kind === 'note' ? item.title || '無題のnote' : item.body || '本文未入力'
 
+const comparePublishItemsByDateDesc = (a: PublishItem, b: PublishItem) => {
+  if (!a.publishDate && !b.publishDate) return 0
+  if (!a.publishDate) return 1
+  if (!b.publishDate) return -1
+  return b.publishDate.localeCompare(a.publishDate)
+}
+
 function normalizeData(savedData: Partial<AppData>): AppData {
   return {
     note: (savedData.note || initialData.note).map((item) => ({
@@ -596,6 +603,7 @@ function PublishPanel({
 }) {
   const isNote = kind === 'note'
   const [editingId, setEditingId] = useState<string | null>(null)
+  const sortedItems = useMemo(() => [...items].sort(comparePublishItemsByDateDesc), [items])
 
   return (
     <div className={isNote ? 'content-layout' : 'post-layout'}>
@@ -686,7 +694,7 @@ function PublishPanel({
           <p>{items.length}件</p>
         </div>
         <div className="item-list">
-          {items.map((item) => {
+          {sortedItems.map((item) => {
             const isEditing = editingId === item.id
 
             return (
